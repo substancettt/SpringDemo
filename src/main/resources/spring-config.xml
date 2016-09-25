@@ -14,41 +14,90 @@
    http://www.springframework.org/schema/tx/spring-tx-3.1.xsd">
 
 	<bean
-		class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator" />
+		class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"
+		lazy-init="true" />
 
 	<bean id="dataSource"
-		class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+		class="org.springframework.jdbc.datasource.DriverManagerDataSource"
+		lazy-init="true">
 		<property name="driverClassName" value="com.mysql.jdbc.Driver" />
 		<property name="url"
-			value="jdbc:mysql://localhost:3306/test?useUnicode=true&amp;characterEncoding=UTF-8" />
+			value="jdbc:mysql://localhost:3306/demo?useUnicode=true&amp;characterEncoding=UTF-8" />
 		<property name="username" value="root" />
 		<property name="password" value="123456" />
 	</bean>
+    
+	<bean id="cuLoader" class="com.wellshang.demo.CuLoader" lazy-init="true" />
 
 	<bean id="transactionManager"
-		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager"
+		lazy-init="true">
 		<property name="dataSource" ref="dataSource" />
 	</bean>
 
 	<tx:annotation-driven transaction-manager="transactionManager" />
 
-	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean"
+		lazy-init="true">
 		<property name="configLocation" value="classpath:mybatis.xml" />
 		<property name="mapperLocations" value="classpath*:com/wellshang/model/*.xml" />
 		<property name="dataSource" ref="dataSource" />
 	</bean>
 
-	<bean id="accountDao" class="com.wellshang.dao.AccountDao">
+	<bean id="accountDao" class="com.wellshang.dao.AccountDao"
+		lazy-init="true">
 		<property name="sessionFactory" ref="sqlSessionFactory" />
 	</bean>
 
-	<bean id="accountService" class="com.wellshang.service.AccountService">
+	<bean id="accountService" class="com.wellshang.service.AccountService"
+		lazy-init="true">
 		<property name="accountDao" ref="accountDao" />
 	</bean>
-    <!-- 
-	<context:annotation-config />
-	<context:component-scan base-package="com.wellshang" />
 
-	<tx:annotation-driven transaction-manager="transactionManager"/>
--->
+	<bean id="targetConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory"
+		lazy-init="true">
+		<property name="brokerURL" value="tcp://localhost:61616" />
+	</bean>
+
+	<bean id="pooledConnectionFactory" class="org.apache.activemq.pool.PooledConnectionFactory"
+		lazy-init="true">
+		<property name="connectionFactory" ref="targetConnectionFactory" />
+		<property name="maxConnections" value="2" />
+	</bean>
+
+	<bean id="connectionFactory"
+		class="org.springframework.jms.connection.SingleConnectionFactory"
+		lazy-init="true">
+		<property name="targetConnectionFactory" ref="pooledConnectionFactory" />
+	</bean>
+
+	<bean id="jmsTemplate" class="org.springframework.jms.core.JmsTemplate"
+		lazy-init="true">
+		<property name="connectionFactory" ref="connectionFactory" />
+	</bean>
+
+	<bean id="topicDestination" class="org.apache.activemq.command.ActiveMQTopic"
+		lazy-init="true">
+		<constructor-arg value="ActiveMQ.Advisory.FirstTopic" />
+	</bean>
+
+	<bean id="msgPublisher" class="com.wellshang.demo.MsgPublisher"
+		lazy-init="true">
+		<constructor-arg name="batchSize" value="7" />
+		<constructor-arg name="queueSize" value="50" />
+		<constructor-arg name="poolSize" value="2" />
+		<constructor-arg name="cornExpression" value="0/10 * * * * ?" />
+	</bean>
+
+	<bean id="consumerMessageListener" class="com.wellshang.demo.BlockingQueueDemoTest"
+		lazy-init="true" />
+
+	<bean id="msgListener"
+		class="org.springframework.jms.listener.DefaultMessageListenerContainer"
+		lazy-init="true">
+		<property name="connectionFactory" ref="connectionFactory" />
+		<property name="destination" ref="topicDestination" />
+		<property name="messageListener" ref="consumerMessageListener" />
+	</bean>
+
 </beans>
